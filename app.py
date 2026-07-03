@@ -23,6 +23,14 @@ LINE = "#E5E7EB"
 
 st.set_page_config(page_title="Segmentasi Manusia", page_icon="🧍", layout="centered")
 
+
+def rerun():
+    if hasattr(st, "rerun"):
+        st.rerun()
+    else:
+        st.experimental_rerun()
+
+
 st.markdown(
     f"""
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,15 +45,6 @@ st.markdown(
 
         [data-testid="stIconMaterial"] {{
             font-family: 'Material Symbols Rounded', sans-serif !important;
-        }}
-
-        [data-testid="stBaseButton-segmented_controlActive"] {{
-            background: #EFF4FF !important;
-            border-color: {ACCENT} !important;
-            color: {ACCENT} !important;
-        }}
-        [data-testid="stBaseButton-segmented_controlActive"] p {{
-            color: {ACCENT} !important;
         }}
 
         .topbar {{
@@ -108,6 +107,25 @@ st.markdown(
             border: none;
             border-radius: 8px;
             font-weight: 500;
+        }}
+
+        div[role="radiogroup"] {{
+            gap: 0.4rem;
+        }}
+        div[role="radiogroup"] label {{
+            background: {CARD};
+            border: 1px solid {LINE};
+            padding: 0.35rem 0.95rem;
+            border-radius: 999px;
+            margin-right: 0;
+            transition: all 0.15s ease;
+        }}
+        div[role="radiogroup"] label:hover {{
+            border-color: {ACCENT};
+        }}
+        div[role="radiogroup"] input:checked + div {{
+            color: {ACCENT} !important;
+            font-weight: 600;
         }}
 
         .samples-label {{
@@ -274,7 +292,7 @@ if st.session_state.active_bytes is None:
     if uploaded is not None:
         st.session_state.active_bytes = uploaded.getvalue()
         st.session_state.active_name = uploaded.name
-        st.rerun()
+        rerun()
 
     available_samples = [f for f in SAMPLE_FILES if os.path.exists(os.path.join(SAMPLES_DIR, f))]
     if available_samples:
@@ -283,12 +301,12 @@ if st.session_state.active_bytes is None:
         for col, fname in zip(cols, available_samples):
             path = os.path.join(SAMPLES_DIR, fname)
             with col:
-                st.image(path, use_container_width=True)
+                st.image(path, use_column_width=True)
                 if st.button("Pakai foto ini", key=f"sample_{fname}"):
                     with open(path, "rb") as f:
                         st.session_state.active_bytes = f.read()
                     st.session_state.active_name = fname
-                    st.rerun()
+                    rerun()
     else:
         st.markdown(
             f'<div class="samples-label">Taruh 3 foto di <code>test_images/samples/</code> '
@@ -302,7 +320,7 @@ if st.button("← Ganti gambar"):
     st.session_state.active_bytes = None
     st.session_state.active_name = None
     st.session_state.uploader_key += 1
-    st.rerun()
+    rerun()
 
 image_bgr = to_bgr(st.session_state.active_bytes)
 
@@ -311,10 +329,12 @@ with st.spinner("Memproses…"):
 
 fg_ratio = float(mask.mean())
 
-view = st.segmented_control(
-    "Tampilan", ["Overlay", "Potongan", "Mask"], default="Overlay", label_visibility="collapsed"
+view = st.radio(
+    "Tampilan",
+    ["Overlay", "Potongan", "Mask"],
+    horizontal=True,
+    label_visibility="collapsed",
 )
-view = view or "Overlay"
 
 strength, overlay_color, bg_color = 0.55, "#2563EB", "#EEE9DD"
 if view == "Overlay":
@@ -339,14 +359,14 @@ else:
 col1, col2 = st.columns(2)
 with col1:
     st.markdown('<div class="panel-title">Asli</div>', unsafe_allow_html=True)
-    st.image(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB), use_container_width=True)
+    st.image(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB), use_column_width=True)
 
 with col2:
     st.markdown(f'<div class="panel-title">{caption}</div>', unsafe_allow_html=True)
     if view == "Mask":
-        st.image(result_bgr, use_container_width=True, clamp=True)
+        st.image(result_bgr, use_column_width=True, clamp=True)
     else:
-        st.image(cv2.cvtColor(result_bgr, cv2.COLOR_BGR2RGB), use_container_width=True)
+        st.image(cv2.cvtColor(result_bgr, cv2.COLOR_BGR2RGB), use_column_width=True)
 
 st.write("")
 m1, m2, m3 = st.columns(3)
