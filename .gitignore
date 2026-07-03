@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+hsg_env/
+
+# Generated / derived data (regenerate via the notebooks; see README)
+/new_data
+/logs
+/results
+/plots
+
+# Raw dataset (download separately from Supervisely; see README)
+/people_segmentation
+
+# Training artifacts (large binary checkpoint; keep files/data.csv as a training log)
+files/model.h5
+files/*.h5
+
+# Inference I/O (user-provided test photos; keep folder structure only)
+test_images/image/*
+test_images/mask/
+!test_images/image/.gitkeep
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
