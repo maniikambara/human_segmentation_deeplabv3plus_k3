@@ -267,13 +267,16 @@ sampel yang dibuang, hanya tersebar pada lebih banyak epoch (~25 menit/epoch
 alih-alih ~1,7 jam). Setel ke `None` untuk kembali ke "satu epoch = seluruh
 dataset sekali".
 
-### Warmup dua fase opsional
+### Warmup dua fase (default aktif: 3 epoch)
 
-`train.ipynb` menyediakan `FREEZE_BACKBONE_EPOCHS` (default 0). Dengan default
-ini model berlatih dalam satu fase. Setel ke angka positif kecil untuk terlebih
-dahulu melatih decoder dengan backbone ResNet50 dibekukan, lalu mencairkan dan
-fine-tune seluruh jaringan. BatchNormalization backbone tetap dibekukan sepanjang
-proses, yang menstabilkan pelatihan pada ukuran batch 2.
+`train.ipynb` menyediakan `FREEZE_BACKBONE_EPOCHS` (default **3**). Selama
+epoch-epoch ini, hanya decoder/ASPP yang dilatih dengan backbone ResNet50
+dibekukan; setelah itu backbone dicairkan dan seluruh jaringan di-fine-tune.
+BatchNormalization backbone tetap dibekukan sepanjang proses, yang
+menstabilkan pelatihan pada ukuran batch 2. Setel ke `0` untuk kembali ke
+training satu fase - **tidak disarankan** di bawah `mixed_float16` karena
+decoder yang baru diinisialisasi acak + backbone penuh dilatih bersamaan
+berisiko menghasilkan NaN pada langkah-langkah awal (lihat "Pemecahan masalah").
 
 ---
 
@@ -359,6 +362,20 @@ dan sudah diperbaiki: metrik pelatihan sekarang menggunakan TensorFlow murni.
 ```bash
 pip install scikit-learn scipy
 ```
+
+**`loss`/`dice_coef` jadi `nan` saat training, dan tidak ada checkpoint yang
+tersimpan di `files/model.h5`** - ini risiko nyata di bawah `mixed_float16`:
+satu batch dengan forward pass yang meledak (NaN) cukup untuk meracuni
+rata-rata berjalan `loss`/`dice_coef` untuk *sisa* epoch itu, sehingga
+`val_loss` jadi NaN dan `ModelCheckpoint` tidak akan pernah melihat
+"peningkatan". `iou`/`recall`/`precision` tetap masuk akal karena metrik ini
+men-threshold prediksi dulu (`NaN > 0.5` selalu `False` di TensorFlow),
+sehingga satu batch NaN hanya dihitung salah, bukan meracuni epoch. Dua
+mitigasi sudah diterapkan: (1) `make_callbacks` memantau `val_iou`
+(mode="max"), bukan `val_loss`, jadi checkpoint tetap tersimpan meski sesekali
+ada batch NaN; (2) `FREEZE_BACKBONE_EPOCHS` default 3 (lihat "Warmup dua
+fase") mengurangi risiko NaN itu sendiri di awal training. Jika NaN tetap
+sering muncul, coba turunkan `LR` atau naikkan `FREEZE_BACKBONE_EPOCHS`.
 
 ---
 
