@@ -33,6 +33,8 @@ st.markdown(
         html, body, [class*="st-"], .stMarkdown, p, span, div {{
             font-family: 'Inter', sans-serif;
         }}
+        .stApp {{ background: {BG}; color: {INK}; }}
+
         [data-testid="stIconMaterial"] {{
             font-family: 'Material Symbols Rounded', sans-serif !important;
         }}
@@ -45,7 +47,6 @@ st.markdown(
         [data-testid="stBaseButton-segmented_controlActive"] p {{
             color: {ACCENT} !important;
         }}
-        .stApp {{ background: {BG}; color: {INK}; }}
 
         .topbar {{
             display: flex;
@@ -235,7 +236,7 @@ if "uploader_key" not in st.session_state:
 model = load_model()
 
 st.markdown(
-    f"""
+    """
     <div class="topbar">
         <div class="brand">Segmentasi<span>.</span></div>
     </div>
