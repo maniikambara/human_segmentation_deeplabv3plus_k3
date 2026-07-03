@@ -65,6 +65,28 @@ membiarkannya mengambil dependensinya sendiri.
 4. **`eval.ipynb`** - mengevaluasi checkpoint pada set tes yang disisihkan.
 5. **`predict.ipynb`** - melakukan segmentasi pada gambar yang Anda tempatkan di
    `test_images/image/`.
+6. **`app.py`** - halaman web Streamlit untuk mencoba model secara interaktif
+   (lihat "Aplikasi uji coba" di bawah).
+
+---
+
+## Aplikasi uji coba (Streamlit)
+
+`app.py` adalah halaman web ringan untuk mencoba checkpoint yang sudah dilatih:
+unggah satu foto, hasil segmentasi langsung tampil tanpa tombol submit.
+
+```bash
+streamlit run app.py
+```
+
+Butuh `files/model.h5` (hasil `train.ipynb`) sudah ada; jika belum, halaman
+menampilkan pesan untuk menjalankan training terlebih dahulu. Fitur:
+
+- Tiga mode tampilan - **Overlay** (warna di atas orang, dengan slider kekuatan
+  warna), **Potongan** (latar belakang dihapus), **Mask** (mask biner hitam/putih).
+- Tombol unduh untuk menyimpan hasil sebagai PNG.
+- Preprocessing identik dengan `predict.ipynb` (lihat `inference.py`, modul plain
+  Python yang dipakai bersama agar aplikasi tidak perlu memuat notebook).
 
 Jika Anda mau, buka satu sesi Jupyter dan jalankan notebook sesuai urutan ini;
 dependensi `%run` membuat setiap notebook dependen mandiri tanpa memandang

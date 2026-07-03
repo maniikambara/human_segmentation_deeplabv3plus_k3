@@ -94,8 +94,9 @@ st.markdown(
             background: {CARD};
             border: 1px solid {LINE};
             border-radius: 16px;
-            padding: 1.1rem 1.1rem 1.3rem 1.1rem;
+            padding: 1rem 0 0 0;
             margin-top: 1rem;
+            overflow: hidden;
         }}
         .result-label {{
             font-size: 0.78rem;
@@ -103,7 +104,7 @@ st.markdown(
             letter-spacing: 0.08em;
             color: {MUTED};
             font-weight: 600;
-            margin-bottom: 0.6rem;
+            padding: 0 1.1rem 0.8rem 1.1rem;
         }}
         .stat-row {{
             display: flex;
@@ -116,7 +117,7 @@ st.markdown(
         .stat b {{ color: {INK}; font-weight: 600; }}
 
         [data-testid="stImage"] img {{
-            border-radius: 10px;
+            display: block;
         }}
 
         .empty-note {{
