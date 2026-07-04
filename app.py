@@ -305,10 +305,14 @@ if st.session_state.active_bytes is None:
         st.session_state.active_name = uploaded.name
         rerun()
 
-    def is_valid_image(path):
+    def is_valid_image(path, min_size=100):
         try:
             with Image.open(path) as img:
                 img.verify()
+            with Image.open(path) as img:
+                img.load()
+                if img.width < min_size or img.height < min_size:
+                    return False
             return True
         except Exception:
             return False
