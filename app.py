@@ -205,6 +205,17 @@ def load_model():
     if not os.path.exists(MODEL_PATH):
         return None
     import tensorflow as tf
+    # Tanpa ini, TF mencoba mengalokasikan sebagian besar VRAM yang saat itu
+    # bebas dalam satu alokasi besar saat sesi pertama kali menyentuh GPU.
+    # Di GPU 6 GB yang juga dipakai kernel Jupyter lain (train/eval/predict.ipynb
+    # yang masih berjalan), ini bisa gagal dengan "DNN library is not found" /
+    # "Could not create cudnn handle" karena tidak ada cukup memori tersisa
+    # untuk cuDNN. Sama seperti configure_gpu() di train.ipynb.
+    for gpu in tf.config.list_physical_devices("GPU"):
+        try:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError:
+            pass  # sudah diinisialisasi
     return tf.keras.models.load_model(MODEL_PATH, compile=False)
 
 
@@ -324,8 +335,25 @@ if st.button("← Ganti gambar"):
 
 image_bgr = to_bgr(st.session_state.active_bytes)
 
-with st.spinner("Memproses…"):
-    mask = segment_image(model, image_bgr)
+import tensorflow as tf  # sudah diimpor & di-cache oleh load_model(); murah di sini
+
+try:
+    with st.spinner("Memproses…"):
+        mask = segment_image(model, image_bgr)
+except tf.errors.OpError as e:
+    st.markdown(
+        f"""
+        <div class="missing-model">
+        Gagal menjalankan model di GPU (<code>{type(e).__name__}</code>).
+        Ini biasanya terjadi kalau notebook Jupyter lain (train/eval/predict.ipynb)
+        masih berjalan di background dan menahan VRAM &mdash; GPU 6&nbsp;GB tidak
+        cukup untuk semuanya sekaligus. Matikan kernel notebook yang tidak
+        dipakai (Kernel &rarr; Shut Down di Jupyter), lalu muat ulang halaman ini.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.stop()
 
 fg_ratio = float(mask.mean())
 
