@@ -242,9 +242,10 @@ Dikonfigurasi di bagian atas `train.ipynb`:
 | Pengaturan | Nilai |
 |---|---|
 | Ukuran batch | 2 (batas aman untuk ResNet50 + ASPP pada 512x512 di 6 GB) |
-| Learning rate | 1e-4 |
-| Epoch | 50 maks, EarlyStopping(patience=10, restore_best_weights) |
-| Steps per epoch | 5000 (lihat "Steps per epoch" di bawah) |
+| Learning rate (warmup) | 1e-4 |
+| Learning rate (fine-tune) | 1e-5 (lihat "Warmup dua fase" di bawah) |
+| Epoch | 70 maks, EarlyStopping(patience=10, restore_best_weights) |
+| Steps per epoch | 1500 (lihat "Steps per epoch" di bawah) |
 | Optimizer | AdamW, weight_decay=1e-4, clipnorm=1.0 |
 | Jadwal LR | ReduceLROnPlateau(factor=0.1, patience=5, min_lr=1e-7) |
 | Mixed precision | mixed_float16 (Tensor Cores) |
@@ -255,28 +256,34 @@ tidak akan muat di 6 GB pada batch 4. Naikkan `BATCH_SIZE` ke 4 hanya pada
 GPU 8 GB atau lebih besar. Sel pelatihan hanya melatih ketika `files/model.h5`
 belum ada (`TRAIN = not os.path.exists(MODEL_PATH)`); **hapus `files/model.h5`
 (dan `files/data.csv`) untuk memaksa pelatihan ulang** — menyetel `TRAIN = True`
-secara manual tidak cukup karena baris tersebut menimpanya lagi.
+secara manual tidak cukup karena baris tersebut menimpanya lagi. `train.ipynb`
+juga punya toggle `QUICK_TEST` (1 epoch, sedikit batch, tanpa warmup) untuk
+memverifikasi pipeline dalam hitungan menit sebelum menjalankan training penuh.
 
 ### Steps per epoch
 
 Dengan augmentasi 8x penuh (~40.888 pasangan), satu epoch lengkap di RTX 4050
 memakan waktu ~1,7 jam — untuk 50 epoch itu bisa 1-3+ hari. `train.ipynb`
-menyediakan `STEPS_PER_EPOCH` (default 5000) yang membatasi setiap epoch pada
-sejumlah batch tersebut; dataset train di-`.repeat()` sehingga tidak ada
-sampel yang dibuang, hanya tersebar pada lebih banyak epoch (~25 menit/epoch
-alih-alih ~1,7 jam). Setel ke `None` untuk kembali ke "satu epoch = seluruh
-dataset sekali".
+menyediakan `STEPS_PER_EPOCH` (default 1500, ~9-9,3 menit/epoch termasuk
+validasi penuh, dengan buffer untuk throttling termal pada run panjang) yang
+membatasi setiap epoch pada sejumlah batch tersebut; dataset train
+di-`.repeat()` sehingga tidak ada sampel yang dibuang, hanya tersebar pada
+lebih banyak epoch. Dengan 70 epoch maks, ini muat dalam anggaran ~11 jam.
+Setel ke `None` untuk kembali ke "satu epoch = seluruh dataset sekali".
 
 ### Warmup dua fase (default aktif: 3 epoch)
 
 `train.ipynb` menyediakan `FREEZE_BACKBONE_EPOCHS` (default **3**). Selama
-epoch-epoch ini, hanya decoder/ASPP yang dilatih dengan backbone ResNet50
-dibekukan; setelah itu backbone dicairkan dan seluruh jaringan di-fine-tune.
-BatchNormalization backbone tetap dibekukan sepanjang proses, yang
-menstabilkan pelatihan pada ukuran batch 2. Setel ke `0` untuk kembali ke
-training satu fase - **tidak disarankan** di bawah `mixed_float16` karena
-decoder yang baru diinisialisasi acak + backbone penuh dilatih bersamaan
-berisiko menghasilkan NaN pada langkah-langkah awal (lihat "Pemecahan masalah").
+epoch-epoch ini, hanya decoder/ASPP yang dilatih (dengan `LR`, 1e-4) dengan
+backbone ResNet50 dibekukan; setelah itu backbone dicairkan dan seluruh
+jaringan di-fine-tune dengan learning rate **terpisah dan jauh lebih kecil**,
+`FINETUNE_LR` (default 1e-5). BatchNormalization backbone tetap dibekukan
+sepanjang proses. Dua hal ini bersama-sama menstabilkan pelatihan pada ukuran
+batch 2 di bawah `mixed_float16`: memakai `LR` warmup yang sama pada fase
+fine-tune bisa membuat backbone pretrained kolaps total begitu dicairkan
+(val_iou anjlok ke ~0 dan tidak pulih, bukan cuma satu batch buruk yang
+pulih sendiri) - lihat "Pemecahan masalah". Setel `FREEZE_BACKBONE_EPOCHS`
+ke `0` untuk kembali ke training satu fase (tidak disarankan).
 
 ---
 
@@ -370,12 +377,22 @@ rata-rata berjalan `loss`/`dice_coef` untuk *sisa* epoch itu, sehingga
 `val_loss` jadi NaN dan `ModelCheckpoint` tidak akan pernah melihat
 "peningkatan". `iou`/`recall`/`precision` tetap masuk akal karena metrik ini
 men-threshold prediksi dulu (`NaN > 0.5` selalu `False` di TensorFlow),
-sehingga satu batch NaN hanya dihitung salah, bukan meracuni epoch. Dua
-mitigasi sudah diterapkan: (1) `make_callbacks` memantau `val_iou`
-(mode="max"), bukan `val_loss`, jadi checkpoint tetap tersimpan meski sesekali
-ada batch NaN; (2) `FREEZE_BACKBONE_EPOCHS` default 3 (lihat "Warmup dua
-fase") mengurangi risiko NaN itu sendiri di awal training. Jika NaN tetap
-sering muncul, coba turunkan `LR` atau naikkan `FREEZE_BACKBONE_EPOCHS`.
+sehingga satu batch NaN hanya dihitung salah, bukan meracuni epoch. Mitigasi:
+`make_callbacks` memantau `val_iou` (mode="max"), bukan `val_loss`, jadi
+checkpoint tetap tersimpan meski sesekali ada batch NaN.
+
+**`val_iou` anjlok ke ~0 dan tidak pulih tepat saat backbone dicairkan (akhir
+fase warmup)** - ini bukan satu batch NaN yang bisa pulih sendiri, tapi model
+yang benar-benar kolaps: backbone ResNet50 pretrained menerima update sebesar
+`LR` warmup begitu dicairkan, cukup besar untuk merusak bobot pretrained-nya.
+Mitigasi: fase fine-tune memakai `FINETUNE_LR` terpisah (default 1e-5, 10x
+lebih kecil dari `LR` warmup). Efek samping dari kolaps ini yang juga sudah
+diperbaiki: `ModelCheckpoint` fase 2 sebelumnya mulai menghitung "terbaik"
+dari `-inf` lagi, sehingga val_iou hasil kolaps (mis. 0.0) dianggap
+"peningkatan" dari `-inf` dan **menimpa checkpoint bagus dari fase warmup**.
+`run_training` sekarang men-seed `initial_value_threshold` fase 2 dengan
+val_iou terbaik dari fase 1, jadi checkpoint fase 1 tidak akan pernah
+tertimpa oleh checkpoint fase 2 yang lebih buruk.
 
 ---
 
