@@ -294,7 +294,18 @@ if st.session_state.active_bytes is None:
         st.session_state.active_name = uploaded.name
         rerun()
 
-    available_samples = [f for f in SAMPLE_FILES if os.path.exists(os.path.join(SAMPLES_DIR, f))]
+    def is_valid_image(path):
+        try:
+            with Image.open(path) as img:
+                img.verify()
+            return True
+        except Exception:
+            return False
+
+    available_samples = [
+        f for f in SAMPLE_FILES
+        if os.path.exists(os.path.join(SAMPLES_DIR, f)) and is_valid_image(os.path.join(SAMPLES_DIR, f))
+    ]
     if available_samples:
         st.markdown('<div class="samples-label">atau coba salah satu contoh berikut</div>', unsafe_allow_html=True)
         cols = st.columns(len(available_samples))
