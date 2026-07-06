@@ -149,8 +149,7 @@ presisi penuh dan bekerja pada Keras 2 (TF 2.10-2.12) maupun Keras 3.
 
 ## Dataset
 
-**People Segmentation Dataset** - [Supervisely](https://supervise.ly/) (lihat juga
-[blog](https://hackernoon.com/releasing-supervisely-person-dataset-for-teaching-machines-to-segment-humans-1f1fc1f28469)),
+**People Segmentation Dataset** - [Nikhil Tomar](https://www.kaggle.com/datasets/nikhilroxtomar/person-segmentation),
 5.678 pasangan gambar-mask.
 
 `segmentation_prep.ipynb` menggunakan **semua** gambar tanpa seleksi, hanya
